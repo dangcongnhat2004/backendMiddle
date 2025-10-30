@@ -10,27 +10,29 @@ const usersCol = () => db().collection('users');
 // List users (protected)
 router.get('/', requireAuth, async (req, res, next) => {
   try {
-    const snap = await usersCol().orderBy('createdAt', 'desc').get();
-    const users = snap.docs.map(d => ({ id: d.id, ...d.data(), passwordHash: undefined }));
+    const snap = await usersCol().get();
+    const users = snap.docs.map(d => {
+      const data = d.data();
+      delete data.passwordHash;
+      return { id: d.id, ...data };
+    });
     res.json(users);
   } catch (err) { next(err); }
 });
+
 router.get('/search', requireAuth, async (req, res, next) => {
   try {
     const q = req.query.q?.toLowerCase() || "";
-    if (!q) return res.json([]);
-
     const snap = await usersCol().get();
-    const results = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .filter(u => (u.username?.toLowerCase().includes(q)));
 
-    if (results.length === 0) return res.json([]);
+    const results = snap.docs.map(d => ({ id:d.id, ...d.data() }))
+      .filter(u => (u.username || "").toLowerCase().includes(q));
 
     results.forEach(u => delete u.passwordHash);
-    res.json(results);
+    return res.json(results);
   } catch (err) { next(err); }
 });
+
 
 // Get single user
 router.get('/:id', requireAuth, async (req, res, next) => {
@@ -52,7 +54,6 @@ router.post('/', requireAuth, upload.single('image'), async (req, res, next) => 
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const now = new Date().toISOString();
 
     // Default image
     let imageUrl = null;
@@ -62,7 +63,7 @@ router.post('/', requireAuth, upload.single('image'), async (req, res, next) => 
       imageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
     }
 
-    const ref = await usersCol().add({ username, email, passwordHash, image: imageUrl, createdAt: now, updatedAt: now });
+    const ref = await usersCol().add({ username, email, passwordHash, image: imageUrl});
 
     const doc = await ref.get();
     const data = doc.data();
@@ -76,13 +77,12 @@ router.post('/', requireAuth, upload.single('image'), async (req, res, next) => 
 router.put('/:id', requireAuth, upload.single('image'), async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
-    const updates = { updatedAt: new Date().toISOString() };
+    const updates = {}; // ✅ thêm dòng này
 
     if (username) updates.username = username;
     if (email) updates.email = email;
     if (password) updates.passwordHash = await bcrypt.hash(password, 10);
 
-    // If new image uploaded → replace image field
     if (req.file) {
       updates.image = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
     }
@@ -94,6 +94,7 @@ router.put('/:id', requireAuth, upload.single('image'), async (req, res, next) =
     res.json({ id: doc.id, ...data });
   } catch (err) { next(err); }
 });
+
 
 // Delete user
 router.delete('/:id', requireAuth, async (req, res, next) => {

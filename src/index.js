@@ -7,6 +7,7 @@ import { initFirebase } from './lib/firebase.js';
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
 import chatRouter from "./routes/chat.js";
+import exportRouter from "./routes/export.js";
 
 const app = express(); // ✅ khai báo app TRƯỚC
 const PORT = process.env.PORT || 8080;
@@ -23,6 +24,7 @@ app.use(morgan('dev'));
 app.use('/auth', authRouter);
 app.use('/users', usersRouter);
 app.use("/chat", chatRouter);   // ✅ ĐÚNG VỊ TRÍ ở đây
+app.use("/export", exportRouter);
 
 import path from "path";
 import { fileURLToPath } from "url";
@@ -42,5 +44,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ API running at: http://192.168.1.11:${PORT}`);
+  console.log(`✅ API running at: http://192.168.1.10:${PORT}`);
 });
